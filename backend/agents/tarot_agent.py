@@ -90,7 +90,8 @@ class TarotInterpretationAgent:
         self,
         spread_result: Dict,
         question: Optional[str] = None,
-        context: Optional[str] = None
+        context: Optional[str] = None,
+        saju_result: Optional[Dict] = None
     ) -> str:
         """
         타로 스프레드 해석
@@ -99,12 +100,19 @@ class TarotInterpretationAgent:
             spread_result: 스프레드 결과 (from TarotSpread)
             question: 질문자의 질문
             context: 추가 상황 설명
+            saju_result: 사주 결과 (있으면 참고하여 해석)
 
         Returns:
             해석 결과 텍스트
         """
         # 스프레드 정보 포맷
         spread_info = self._format_spread_info(spread_result)
+
+        # 사주 결과가 있으면 추가
+        if saju_result:
+            saju_context = self._format_saju_context(saju_result)
+            spread_info += f"\n\n## 참고: 사주 분석 결과\n\n{saju_context}"
+            spread_info += "\n\n※ 위 사주 분석도 함께 고려하여 타로를 해석해주세요. 타고난 사주 운명과 현재 타로 메시지가 어떻게 조화를 이루는지 통찰을 제공해주세요."
 
         # 프롬프트 구성
         messages = [
@@ -209,6 +217,28 @@ class TarotInterpretationAgent:
         response = self.llm.invoke(messages)
 
         return response.content
+
+    def _format_saju_context(self, saju_result: Dict) -> str:
+        """사주 결과를 간결하게 포맷"""
+        basic = saju_result.get("basic_saju", {})
+        summary = basic.get("summary", "")
+        element_analysis = basic.get("element_analysis", {})
+
+        formatted = f"**사주 요약:** {summary}\n\n"
+
+        # 오행 분석
+        if element_analysis:
+            formatted += f"**일간:** {element_analysis.get('day_master', '알 수 없음')}\n"
+            formatted += f"**최강 오행:** {element_analysis.get('strongest', '알 수 없음')}\n"
+            formatted += f"**최약 오행:** {element_analysis.get('weakest', '알 수 없음')}\n\n"
+
+        # 대운 (있으면)
+        daeun = saju_result.get("daeun", {})
+        current_daeun = daeun.get("current")
+        if current_daeun:
+            formatted += f"**현재 대운:** {current_daeun.get('combined', '')} ({current_daeun.get('age_range', '')})\n"
+
+        return formatted
 
     def single_card_guidance(
         self,

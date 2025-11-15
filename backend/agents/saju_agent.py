@@ -94,7 +94,8 @@ class SajuInterpretationAgent:
         self,
         saju_result: Dict,
         user_question: Optional[str] = None,
-        focus_areas: Optional[List[str]] = None
+        focus_areas: Optional[List[str]] = None,
+        tarot_result: Optional[Dict] = None
     ) -> str:
         """
         사주팔자 해석
@@ -103,12 +104,19 @@ class SajuInterpretationAgent:
             saju_result: SajuCalculator.calculate()의 결과
             user_question: 사용자의 추가 질문
             focus_areas: 집중 분석 영역 ["성격", "재물", "직업", "건강", "인연"] 등
+            tarot_result: 타로 결과 (있으면 참고하여 해석)
 
         Returns:
             해석 결과 텍스트
         """
         # 사주 정보 구조화
         saju_info = self._format_saju_info(saju_result)
+
+        # 타로 결과가 있으면 추가
+        if tarot_result:
+            tarot_context = self._format_tarot_context(tarot_result)
+            saju_info += f"\n\n## 참고: 타로 리딩 결과\n\n{tarot_context}"
+            saju_info += "\n\n※ 위 타로 결과도 함께 고려하여 사주를 해석해주세요. 사주의 타고난 운명과 타로의 현재 상황/미래 가능성을 종합적으로 분석해주세요."
 
         # 프롬프트 구성
         messages = [
@@ -189,6 +197,25 @@ class SajuInterpretationAgent:
         for pillar_type, rels in relations.items():
             lines.append(f"- {pillar_type}: 천간={rels['gan']}, 지지={rels['ji']}")
         return "\n".join(lines)
+
+    def _format_tarot_context(self, tarot_result: Dict) -> str:
+        """타로 결과를 간결하게 포맷"""
+        spread_type = tarot_result.get("spread_type", "타로 스프레드")
+        cards = tarot_result.get("cards", {})
+
+        formatted = f"**스프레드 타입:** {spread_type}\n\n"
+        formatted += "**뽑힌 카드:**\n"
+
+        for position_key, card_data in cards.items():
+            position = card_data.get("position", position_key)
+            card = card_data.get("card", {})
+            card_name = card.get("name_ko", "알 수 없음")
+            direction = card.get("position", "정방향")
+            keywords = ", ".join(card.get("keywords", []))
+
+            formatted += f"- {position}: {card_name} ({direction}) - {keywords}\n"
+
+        return formatted
 
     def chat(
         self,
